@@ -89,9 +89,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
         </thead>
         <tbody>
           {data.map((user, idx) => {
-            let countNightAfternoon = 0; // ดบ
-            let countMorningAfternoon = 0; // ชบ
+            let countNightAfternoon = 0; // For OT Calculation (Count of DB instances)
+            let countMorningAfternoon = 0; // For OT Calculation (Count of CB instances)
             let countZeros = 0;
+            let dbScore = 0; // New Calculation: Weighted score for the "ดบ" column
 
             const rowCells = [];
             
@@ -111,11 +112,19 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
                     countZeros++;
                 }
 
-                // Count for OT / Stats (Based on real shifts, unless overridden? usually overrides like Sick implies no shift count)
+                // --- OT Calculation Logic (Count instances) ---
                 if (!override) {
                     if (shiftContent === 'ดบ') countNightAfternoon++;
                     else if (shiftContent === 'ชบ') countMorningAfternoon++;
                 }
+
+                // --- "ดบ" Column Logic (Count weights based on Display Value) ---
+                // "ด" => +1
+                // "บ" => +1
+                // "ดบ" => +2 (includes 'ด' and 'บ')
+                // "ชบ" => +1 (includes 'บ')
+                if (displayVal.includes('ด')) dbScore += 1;
+                if (displayVal.includes('บ')) dbScore += 1;
 
                 rowCells.push({
                     day: d,
@@ -125,7 +134,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
                 });
             }
 
-            // OT Formula: (PublicHolidays - Zeros) + DB + CB
+            // OT Formula: (PublicHolidays - Zeros) + DB(Instances) + CB(Instances)
             const otScore = (publicHolidays - countZeros) + countNightAfternoon + countMorningAfternoon;
 
             return (
@@ -195,7 +204,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
                 })()}
 
                 {/* Summary Columns */}
-                <td className="border border-gray-600 font-medium print:border-black text-yellow-500 print:text-black">{countNightAfternoon || '-'}</td>
+                <td className="border border-gray-600 font-medium print:border-black text-yellow-500 print:text-black">{dbScore}</td>
                 <td className="border border-gray-600 font-bold bg-red-900/20 text-red-200 print:text-black print:bg-red-50 print:border-black">{otScore}</td>
               </tr>
             );
