@@ -88,8 +88,8 @@ export const processShifts = (logs: RawLog[], filterDate: Date): ShiftRecord[] =
     // =================================================================================
     // 1. NIGHT SHIFT (เวรดึก) for Day D
     // Core: 00:00 - 08:00 (Day D)
-    // Entry Window: Day D-1 22:30  to  Day D 00:45
-    // Exit Window:  Day D 08:00    to  Day D 09:15
+    // Entry Window: Day D-1 22:00 (Extended -2.5h) to Day D 01:00 (Extended +0.5h)
+    // Exit Window:  Day D 08:00 to Day D 10:30 (Extended +2.5h)
     // =================================================================================
     
     let nightInLog: RawLog | undefined;
@@ -97,31 +97,27 @@ export const processShifts = (logs: RawLog[], filterDate: Date): ShiftRecord[] =
 
     // Find Potential Entry
     const potentialNightEntries = pLogs.filter(l => !isUsed(l) && (
-        (isSameDay(l.timestamp, prevDate) && isTimeInRange(l.timestamp, 22, 30, 23, 59)) ||
-        (isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 0, 0, 0, 45))
+        (isSameDay(l.timestamp, prevDate) && isTimeInRange(l.timestamp, 22, 0, 23, 59)) ||
+        (isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 0, 0, 1, 0))
     ));
 
-    // Resolve Ambiguity for entries around 00:00-00:45
-    // Is it Night Entry (D) or Afternoon Exit (D-1)?
+    // Resolve Ambiguity for entries around 00:00-01:00
     for (const entry of potentialNightEntries) {
-        // If entry is > 00:00, check if it looks like an Afternoon Exit from yesterday
-        if (isSameDay(entry.timestamp, filterDate) && entry.timestamp.getHours() === 0) {
+        // Check if it's potentially an Afternoon Exit from yesterday
+        if (isSameDay(entry.timestamp, filterDate) && entry.timestamp.getHours() <= 1) {
             const hasYesterdayAfternoonIn = pLogs.some(l => 
-                isSameDay(l.timestamp, prevDate) && isTimeInRange(l.timestamp, 15, 30, 16, 45)
+                isSameDay(l.timestamp, prevDate) && isTimeInRange(l.timestamp, 14, 0, 17, 0)
             );
             
             const hasTodayNightOut = pLogs.some(l => 
-                isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 8, 0, 9, 15)
+                isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 8, 0, 10, 30)
             );
 
-            // Strong rule: If they came in yesterday afternoon, and DON'T have a morning exit today,
-            // this 00:xx log is likely their Afternoon Exit. Skip it for Night Shift.
+            // If came in yesterday afternoon and NO morning exit today, assume this is the exit
             if (hasYesterdayAfternoonIn && !hasTodayNightOut) {
                 continue; 
             }
         }
-        
-        // If we passed the check, take the first valid one
         nightInLog = entry;
         break; 
     }
@@ -130,7 +126,7 @@ export const processShifts = (logs: RawLog[], filterDate: Date): ShiftRecord[] =
         // Find Pair Exit
         nightOutLog = pLogs.find(l => !isUsed(l) && 
             isSameDay(l.timestamp, filterDate) && 
-            isTimeInRange(l.timestamp, 8, 0, 9, 15)
+            isTimeInRange(l.timestamp, 8, 0, 10, 30)
         );
 
         usedLogs.add(nightInLog);
@@ -151,20 +147,20 @@ export const processShifts = (logs: RawLog[], filterDate: Date): ShiftRecord[] =
     // =================================================================================
     // 2. MORNING SHIFT (เวรเช้า) for Day D
     // Core: 08:00 - 16:00
-    // Entry Window: Day D 07:30 to 08:45
-    // Exit Window:  Day D 16:00 to 17:15
+    // Entry Window: Day D 06:00 (Extended -2h) to 09:30 (Extended +1.5h)
+    // Exit Window:  Day D 15:30 (Extended -0.5h) to 18:30 (Extended +2.5h)
     // =================================================================================
 
     const morningInLog = pLogs.find(l => !isUsed(l) && 
         isSameDay(l.timestamp, filterDate) && 
-        isTimeInRange(l.timestamp, 7, 30, 8, 45)
+        isTimeInRange(l.timestamp, 6, 0, 9, 30)
     );
 
     if (morningInLog) {
         // Find Pair Exit
         const morningOutLog = pLogs.find(l => !isUsed(l) && 
             isSameDay(l.timestamp, filterDate) && 
-            isTimeInRange(l.timestamp, 16, 0, 17, 15)
+            isTimeInRange(l.timestamp, 15, 30, 18, 30)
         );
 
         usedLogs.add(morningInLog);
@@ -185,20 +181,20 @@ export const processShifts = (logs: RawLog[], filterDate: Date): ShiftRecord[] =
     // =================================================================================
     // 3. AFTERNOON SHIFT (เวรบ่าย) for Day D
     // Core: 16:00 - 00:00
-    // Entry Window: Day D 15:30 to 16:45
-    // Exit Window:  Day D 23:50 to Day D+1 01:15
+    // Entry Window: Day D 14:00 (Extended -2h) to 17:00 (Extended +1h)
+    // Exit Window:  Day D 23:00 (Extended -1h) to Day D+1 02:30 (Extended +2.5h)
     // =================================================================================
 
     const afternoonInLog = pLogs.find(l => !isUsed(l) && 
         isSameDay(l.timestamp, filterDate) && 
-        isTimeInRange(l.timestamp, 15, 30, 16, 45)
+        isTimeInRange(l.timestamp, 14, 0, 17, 0)
     );
 
     if (afternoonInLog) {
-        // Find Pair Exit (Could be late tonight OR early tomorrow)
+        // Find Pair Exit
         const afternoonOutLog = pLogs.find(l => !isUsed(l) && (
-            (isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 23, 50, 23, 59)) ||
-            (isSameDay(l.timestamp, nextDate) && isTimeInRange(l.timestamp, 0, 0, 1, 15))
+            (isSameDay(l.timestamp, filterDate) && isTimeInRange(l.timestamp, 23, 0, 23, 59)) ||
+            (isSameDay(l.timestamp, nextDate) && isTimeInRange(l.timestamp, 0, 0, 2, 30))
         ));
 
         usedLogs.add(afternoonInLog);
