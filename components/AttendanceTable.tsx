@@ -27,9 +27,11 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ records, isLoading, s
       </div>
 
       <div className="overflow-x-auto shadow-xl rounded-sm border border-gray-700 print:shadow-none print:border-none print:overflow-visible">
-        <table className="min-w-full bg-[#1e1e1e] text-center text-sm md:text-base border-collapse print:bg-white print:text-black print:text-xs">
+        {/* Removed bg-[#1e1e1e] to allow transparency for copy-paste */}
+        <table className="min-w-full text-center text-sm md:text-base border-collapse print:bg-white print:text-black print:text-xs">
           <thead>
-            <tr className="bg-[#2d2d2d] text-gray-200 print:bg-gray-200 print:text-black">
+            {/* Removed bg-[#2d2d2d] to allow transparency. Text remains readable on dark body. */}
+            <tr className="text-gray-200 print:bg-gray-200 print:text-black">
               {/* Adjusted widths: Reduced Name, Increased Signatures */}
               <th className="py-3 px-1 border border-gray-600 font-medium w-[5%] print:border-black">ลำดับที่</th>
               <th className="py-3 px-1 border border-gray-600 font-medium w-[8%] print:border-black">เวร</th>
