@@ -64,7 +64,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
         <h2 className="text-2xl font-bold">ตารางสรุปการปฏิบัติงานประจำเดือน {thaiMonth} {thaiYear}</h2>
       </div>
 
-      <table className="w-full min-w-[1000px] border-collapse bg-[#1e1e1e] text-center text-sm print:bg-white print:text-black print:text-xs border border-gray-600 print:border-black">
+      <table className="w-full min-w-[1000px] border-collapse bg-transparent text-center text-sm print:bg-white print:text-black print:text-xs border border-gray-600 print:border-black">
         <thead>
           {/* Header Row 1 */}
           <tr className="bg-[#2d2d2d] text-white print:bg-[#f0f0f0] print:text-black">
@@ -119,10 +119,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
                 }
 
                 // --- "ดบ" Column Logic (Count weights based on Display Value) ---
-                // "ด" => +1
-                // "บ" => +1
-                // "ดบ" => +2 (includes 'ด' and 'บ')
-                // "ชบ" => +1 (includes 'บ')
                 if (displayVal.includes('ด')) dbScore += 1;
                 if (displayVal.includes('บ')) dbScore += 1;
 
@@ -153,49 +149,60 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({ data, selectedDate, pub
                             while (i + span < rowCells.length && rowCells[i+span].override === cell.override) {
                                 span++;
                             }
+                            // Merged Cell
                             cells.push(
                                 <td 
                                     key={cell.day} 
                                     colSpan={span}
-                                    className="border border-gray-600 text-center bg-gray-700 text-white print:bg-gray-200 print:text-black print:border-black p-0 relative"
+                                    className="border border-gray-600 text-center bg-gray-700 text-white print:bg-gray-200 print:text-black print:border-black p-0 relative group"
                                 >
-                                     <select 
-                                        className="w-full h-full bg-transparent text-center appearance-none focus:outline-none cursor-pointer text-[10px] md:text-xs font-bold"
-                                        value={cell.override}
-                                        onChange={(e) => handleStatusChange(user.name, cell.day, e.target.value)}
-                                    >
-                                        <option value="ลาป่วย">ลาป่วย</option>
-                                        <option value="ประชุม">ประชุม</option>
-                                        <option value="VAC">VAC</option>
-                                        <option value="0">0</option>
-                                    </select>
+                                    {/* Content Wrapper for Copy/Paste safety */}
+                                    <div className="w-full h-full flex items-center justify-center relative">
+                                        <span className="text-[10px] md:text-xs font-bold pointer-events-none">{cell.override}</span>
+                                        <select 
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            value={cell.override}
+                                            onChange={(e) => handleStatusChange(user.name, cell.day, e.target.value)}
+                                        >
+                                            <option value="ลาป่วย">ลาป่วย</option>
+                                            <option value="ประชุม">ประชุม</option>
+                                            <option value="VAC">VAC</option>
+                                            <option value="0">0</option>
+                                        </select>
+                                    </div>
                                 </td>
                             );
                             i += span - 1; 
                         } else {
+                            // Standard Cell
                             cells.push(
                                 <td 
                                     key={cell.day} 
-                                    className={`border border-gray-600 text-center p-0 print:border-black relative
+                                    className={`border border-gray-600 text-center p-0 print:border-black relative group
                                         ${cell.isZero ? 'text-red-500 font-bold' : ''}
                                         ${cell.displayVal === 'ดบ' || cell.displayVal === 'ชบ' ? 'text-yellow-400 print:text-black font-bold bg-yellow-900/10 print:bg-yellow-100' : ''}
                                     `}
                                 >
-                                    <div className="w-full h-full flex items-center justify-center text-[11px] md:text-sm">
-                                        {cell.displayVal}
-                                    </div>
-                                    {cell.isZero && (
+                                    {/* Use a relative container to hold Text (for copy) and Select (overlay) */}
+                                    <div className="w-full h-full flex items-center justify-center relative min-h-[30px]">
+                                        <span className="text-[11px] md:text-sm pointer-events-none">
+                                            {cell.displayVal}
+                                        </span>
+                                        
+                                        {/* Dropdown always present (opacity 0) to allow changing any cell */}
                                         <select 
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            value="0"
+                                            value={cell.isZero ? "0" : ""} // If it's 0 or standard shift, value is '0' or default. 
+                                            // Note: If it's a shift (e.g. 'ช'), the select value won't match '0', so it shows nothing selected, which is fine.
+                                            // User selects an Override option.
                                             onChange={(e) => handleStatusChange(user.name, cell.day, e.target.value)}
                                         >
-                                            <option value="0">0</option>
+                                            <option value="0">ปกติ/ลบ</option>
                                             <option value="ลาป่วย">ลาป่วย</option>
                                             <option value="ประชุม">ประชุม</option>
                                             <option value="VAC">VAC</option>
                                         </select>
-                                    )}
+                                    </div>
                                 </td>
                             );
                         }
